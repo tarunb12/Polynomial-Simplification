@@ -1,5 +1,12 @@
 ## Polynomial Simplification in OCaml
 
+### Compiling
 ```
-make
+$ make clean
+$ make
+```
+
+### Testing
+```
+$ make tests
 ```

@@ -2,8 +2,8 @@
 .merlin
 
 _build
+_tags
 
 main.byte
 tests/*.out
 GettingStarted.txt
-_tags

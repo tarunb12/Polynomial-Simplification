@@ -112,15 +112,28 @@ let simplify_polyExpr (e : polyExpr) : polyExpr =
   | _ -> e
   ;;
 
-(* 
-  Compute if two polyExpr are the same 
-  Make sure this code works before you work on simplify1  
-*)
-let equal_polyExpr (_e1 : polyExpr) (_e2 : polyExpr) : bool =
-  true ;;
+(* Compute if two polyExpr are the same 
+   Make sure this code works before you work on simplify1 *)
+let compare_poly_list (poly_expr_list_1 : polyExpr list) (poly_expr_list_2 : polyExpr list) : bool =
+  if poly_expr_list_1 = poly_expr_list_2 then true
+  else false ;;
+
+let rec equal_polyExpr (e1 : polyExpr) (e2 : polyExpr) : bool =
+  match (e1, e2) with
+  | (Term (i1, i2), Term (i3, i4)) -> (
+    if i1 = i2 then
+      if i3 = i4 then true
+      else false
+    else false)
+  | (Plus list1, Plus list2) -> compare_poly_list list1 list2
+  | (Minus list1, Minus list2) -> compare_poly_list list1 list2
+  | (Times list1, Times list2) -> compare_poly_list list1 list2
+  | (Divide list1, Divide list2) -> compare_poly_list list1 list2
+  | (Negate expr1, Negate expr2) -> equal_polyExpr expr1 expr2
+  | _ -> false ;;
 
 (* Fixed point version of simplify1 
-  i.e. Apply simplify1 until no 
+  i.e. Apply simplify_polyExpr until no 
   progress is made
 *)    
 let rec simplify (e : polyExpr) : polyExpr =
