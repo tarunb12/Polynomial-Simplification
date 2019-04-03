@@ -1,0 +1,9 @@
+.DS_Store
+.merlin
+
+_build
+
+main.byte
+tests/*.out
+GettingStarted.txt
+_tags
