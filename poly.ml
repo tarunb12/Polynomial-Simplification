@@ -42,26 +42,26 @@ let rec from_expr (e : Expr.expr) : polyExpr =
     Hint 1: Degree of Term(n,m) is m
     Hint 2: Degree of Plus[...] is the max of the degree of args
     Hint 3: Degree of Times[...] is the sum of the degree of args *)
-let rec degree (e : polyExpr) : int =
-  match e with
+let rec degree (expr : polyExpr) : int =
+  match expr with
   | Term (_, p) -> p
-  | Plus poly_expr_list -> (
-    match poly_expr_list with
-    | [] -> 0
-    | hd :: tl -> if (degree hd) > (degree (Plus tl)) then degree hd else degree (Plus tl))
-  | Minus poly_expr_list -> (
-    match poly_expr_list with
-    | [] -> 0
-    | hd :: tl -> if (degree hd) > (degree (Minus tl)) then degree hd else degree (Minus tl))
-  | Times poly_expr_list -> (
-    match poly_expr_list with
-    | [] -> 0
-    | hd :: tl -> if (degree hd) > (degree (Times tl)) then degree hd else degree (Times tl))
-  | Divide poly_expr_list -> (
-    match poly_expr_list with
-    | [] -> 0
-    | hd :: tl -> if (degree hd) > (degree (Divide tl)) then degree hd else degree (Divide tl))
-  | Negate poly_expr -> degree poly_expr ;;
+  | Plus list -> get_list_degree expr list
+  | Minus list -> get_list_degree expr list
+  | Times list -> get_list_degree expr list
+  | Divide list -> get_list_degree expr list
+  | Negate poly_expr -> degree poly_expr
+
+and get_list_degree (expr: polyExpr) (list : polyExpr list) : int =
+  match list with
+  | [] -> 0
+  | hd :: [] -> degree hd
+  | hd :: tl ->
+    match expr with
+    | Plus _ -> if degree hd > degree (Plus tl) then degree hd else degree (Plus tl)
+    | Minus _ -> if degree hd > degree (Minus tl) then degree hd else degree (Minus tl)
+    | Times _ -> if degree hd > degree (Times tl) then degree hd else degree (Times tl)
+    | Divide _ -> if degree hd > degree (Divide tl)then degree hd else degree (Divide tl)
+    | _ -> 0 ;;
 
 (*  Comparison function useful for sorting of Plus[..] args 
     to "normalize them". This way, terms that need to be reduced
