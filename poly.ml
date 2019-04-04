@@ -11,7 +11,6 @@
 type polyExpr =
   | Term    of int * int 
   | Plus    of polyExpr list
-  | Minus   of polyExpr list
   | Times   of polyExpr list
   | Divide  of polyExpr list
   | Negate  of polyExpr ;;
@@ -23,7 +22,7 @@ let rec from_expr (e : Expr.expr) : polyExpr =
   | Num i -> Term (i, 0)
   | Var v -> Term (1, 1)
   | Add (e1, e2) -> Plus [from_expr e1; from_expr e2]
-  | Sub (e1, e2) -> Minus [from_expr e1; from_expr e2]
+  | Sub (e1, e2) -> Plus [from_expr (Neg e1); from_expr (Neg e2)]
   | Mul (e1, e2) -> Times [from_expr e1; from_expr e2]
   | Pos e -> from_expr e
   | Neg e -> Times[Term (-1, 0); from_expr e]
@@ -46,7 +45,6 @@ let rec degree (expr : polyExpr) : int =
   match expr with
   | Term (_, p) -> p
   | Plus list -> get_list_degree expr list
-  | Minus list -> get_list_degree expr list
   | Times list -> get_list_degree expr list
   | Divide list -> get_list_degree expr list
   | Negate poly_expr -> degree poly_expr
@@ -57,10 +55,8 @@ and get_list_degree (expr: polyExpr) (list : polyExpr list) : int =
   | hd :: [] -> degree hd
   | hd :: tl ->
     match expr with
-    | Plus _ -> if degree hd > degree (Plus tl) then degree hd else degree (Plus tl)
-    | Minus _ -> if degree hd > degree (Minus tl) then degree hd else degree (Minus tl)
-    | Times _ -> if degree hd > degree (Times tl) then degree hd else degree (Times tl)
-    | Divide _ -> if degree hd > degree (Divide tl)then degree hd else degree (Divide tl)
+    | Plus _ -> max (degree hd) (degree (Plus tl))
+    | Times _ -> degree hd + degree (Times tl)
     | _ -> 0 ;;
 
 (*  Comparison function useful for sorting of Plus[..] args 
@@ -98,7 +94,6 @@ let rec print_polyExpr (e : polyExpr): unit =
   match e with
   | Term (c, p) -> print_term c p
   | Plus list -> print_polyExpr_list e list "+"
-  | Minus list -> print_polyExpr_list e list "-"
   | Times list -> print_polyExpr_list e list "*"
   | Divide list -> print_polyExpr_list e list "/"
   | Negate expr -> Printf.printf "-"; print_polyExpr expr
@@ -112,7 +107,6 @@ and print_polyExpr_list (poly_expr : polyExpr) (poly_expr_list : polyExpr list) 
     Printf.printf "%s" op;
     match poly_expr with
     | Plus _ -> print_polyExpr (Plus tl)
-    | Minus _ -> print_polyExpr (Minus tl)
     | Times _ -> print_polyExpr (Times tl)
     | Divide _ -> print_polyExpr (Divide tl)
     | _ -> ()) ;;
@@ -134,7 +128,7 @@ and print_polyExpr_list (poly_expr : polyExpr) (poly_expr_list : polyExpr list) 
     Hint 6: Find other situations that can arise *)
 let simplify_polyExpr (e : polyExpr) : polyExpr =
   match e with
-  | Term(_, _) -> Term(0, 1)
+  | Term (c, p) -> Term (c, p)
   | _ -> e
   ;;
 
@@ -146,21 +140,21 @@ let compare_poly_list (list1 : polyExpr list) (list2 : polyExpr list) : bool =
 
 let rec equal_polyExpr (e1 : polyExpr) (e2 : polyExpr) : bool =
   match (e1, e2) with
-  | (Term (i1, i2), Term (i3, i4)) -> (
+  | Term (i1, i2), Term (i3, i4) -> (
     if i1 = i2 then
       if i3 = i4 then true
       else false
     else false)
-  | (Plus list1, Plus list2) -> compare_poly_list list1 list2
-  | (Minus list1, Minus list2) -> compare_poly_list list1 list2
-  | (Times list1, Times list2) -> compare_poly_list list1 list2
-  | (Divide list1, Divide list2) -> compare_poly_list list1 list2
-  | (Negate expr1, Negate expr2) -> equal_polyExpr expr1 expr2
+  | Plus list1, Plus list2 -> compare_poly_list list1 list2
+  | Times list1, Times list2 -> compare_poly_list list1 list2
+  | Divide list1, Divide list2 -> compare_poly_list list1 list2
+  | Negate expr1, Negate expr2 -> equal_polyExpr expr1 expr2
   | _ -> false ;;
 
 (*  Fixed point version of simplify1 
     i.e. Apply simplify_polyExpr until no progress is made *)    
 let rec simplify (e : polyExpr) : polyExpr =
+  Printf.printf "degree: %d\n" (degree e);
   let rE = simplify_polyExpr e in
     print_polyExpr rE;
     print_newline ();
