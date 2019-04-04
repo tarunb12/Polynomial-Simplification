@@ -78,10 +78,44 @@ let compare (e1 : polyExpr) (e2 : polyExpr) : bool =
 
     Hint 1: Print () around elements that are not Term() 
     Hint 2: Recurse on the elements of Plus[..] or Times[..] *)
-let print_polyExpr (_e : polyExpr): unit =
-  (* TODO *)
-  Printf.printf "Not implemented";
-  print_newline ()
+
+let print_term (c : int) (p : int) : unit =
+  match c with
+  | 0 -> Printf.printf "0"
+  | 1 -> (
+    match p with
+    | 0 -> Printf.printf "1"
+    | 1 -> Printf.printf "x"
+    | _ -> Printf.printf "x%d" p)
+  | _ -> (
+    match p with
+    | 0 -> Printf.printf "%d" c
+    | 1 -> Printf.printf "%dx" c
+    | _ -> Printf.printf "%dx^%d" c p) ;;
+
+
+let rec print_polyExpr (e : polyExpr): unit =
+  match e with
+  | Term (c, p) -> print_term c p
+  | Plus list -> print_polyExpr_list e list "+"
+  | Minus list -> print_polyExpr_list e list "-"
+  | Times list -> print_polyExpr_list e list "*"
+  | Divide list -> print_polyExpr_list e list "/"
+  | Negate expr -> Printf.printf "-"; print_polyExpr expr
+
+and print_polyExpr_list (poly_expr : polyExpr) (poly_expr_list : polyExpr list) (op : string) : unit =
+  match poly_expr_list with
+  | [] -> print_newline ()
+  | hd :: [] -> print_polyExpr hd
+  | hd :: tl -> (
+    print_polyExpr hd;
+    Printf.printf "%s" op;
+    match poly_expr with
+    | Plus _ -> print_polyExpr (Plus tl)
+    | Minus _ -> print_polyExpr (Minus tl)
+    | Times _ -> print_polyExpr (Times tl)
+    | Divide _ -> print_polyExpr (Divide tl)
+    | _ -> ()) ;;
 
 (*  Function to simplify (one pass) polyExprr
 
@@ -129,4 +163,5 @@ let rec equal_polyExpr (e1 : polyExpr) (e2 : polyExpr) : bool =
 let rec simplify (e : polyExpr) : polyExpr =
   let rE = simplify_polyExpr e in
     print_polyExpr rE;
+    print_newline ();
     if equal_polyExpr e rE then e else simplify rE ;;
