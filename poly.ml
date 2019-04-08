@@ -167,9 +167,9 @@ let rec equal_polyExpr (e1 : polyExpr) (e2 : polyExpr) : bool =
   | _ -> false ;;
 
 (*  Apply simplify_polyExpr until no progress is made *)    
-let rec simplify (e : polyExpr) : polyExpr =
-  Printf.printf "degree: %d\n" (degree e);
-  print_polyExpr e;
+let rec simplify (expr : polyExpr) : polyExpr =
+  Printf.printf "degree: %d\n" (degree expr);
+  print_polyExpr expr;
   print_newline ();
-  let rE : polyExpr = simplify_polyExpr e in
-    if equal_polyExpr e rE then e else simplify rE ;;
+  let simplifiedExpr : polyExpr = simplify_polyExpr expr in
+    if equal_polyExpr expr simplifiedExpr then expr else simplify simplifiedExpr ;;
