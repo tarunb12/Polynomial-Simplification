@@ -1,6 +1,6 @@
 let filename = Sys.argv.(1)
 
-let () = (open_in filename)
+let () = open_in filename
   |> Lexing.from_channel
   |> Parser.main Lexer.token 
   |> Expr.print_expr
