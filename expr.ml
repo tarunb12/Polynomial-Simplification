@@ -8,12 +8,12 @@ type expr =
   | Pos of expr
   | Neg of expr ;;
 
-let rec print_op1 c e = 
+let rec print_op1 (c : string) (e : expr) : unit = 
   Printf.printf "%s(" c;
   print_expr_r e;
   Printf.printf ")"
 
-and print_op2 c e1 e2 = 
+and print_op2 (c : string) (e1 : expr) (e2 : expr) : unit = 
   Printf.printf "(";
   print_expr_r e1;
   Printf.printf "%s" c;
