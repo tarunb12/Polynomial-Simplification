@@ -27,22 +27,6 @@ let rec from_expr (expr : Expr.expr) : polyExpr =
         else [Term (0, 0)] in
       Times (pow_exp i [])) ;;
 
-(* Computes degree of a polynomial expression *)
-let rec degree (expr : polyExpr) : int =
-  match expr with
-  | Term (_, p) -> p
-  | Plus list | Times list -> get_list_degree expr list
-
-and get_list_degree (expr: polyExpr) (list : polyExpr list) : int =
-  match list with
-  | [] -> 0
-  | hd :: [] -> degree hd
-  | hd :: tl ->
-    match expr with
-    | Plus _ -> max (degree hd) (degree (Plus tl))
-    | Times _ -> degree hd + degree (Times tl)
-    | _ -> 0 ;;
-
 (*  Print a polyExprr nicely 
     Term(3,0) -> 3
     Term(5,1) -> 5x 
@@ -52,7 +36,6 @@ and get_list_degree (expr: polyExpr) (list : polyExpr list) : int =
 
     Hint 1: Print () around elements that are not Term() 
     Hint 2: Recurse on the elements of Plus[..] or Times[..] *)
-
 let print_term (c : int) (p : int) : unit =
   match c with
   | 0 -> Printf.printf "0"
@@ -85,6 +68,22 @@ and print_polyExpr_list (expr : polyExpr) (list : polyExpr list) (op : string) :
     | Times _ -> print_polyExpr (Times tl)
     | _ -> ()) ;;
 
+(* Computes degree of a polynomial expression *)
+let rec degree (expr : polyExpr) : int =
+  match expr with
+  | Term (_, p) -> p
+  | Plus list | Times list -> get_list_degree expr list
+
+and get_list_degree (expr: polyExpr) (list : polyExpr list) : int =
+  match list with
+  | [] -> 0
+  | hd :: [] -> degree hd
+  | hd :: tl ->
+    match expr with
+    | Plus _ -> max (degree hd) (degree (Plus tl))
+    | Times _ -> degree hd + degree (Times tl)
+    | _ -> 0 ;;
+
 (*  Comparison function useful for sorting of Plus[..] args 
     to "normalize them". This way, terms that need to be reduced
     show up one after another *)
@@ -92,6 +91,8 @@ let compare_degree (e1 : polyExpr) (e2 : polyExpr) : int =
   let comparison = compare (degree e1) (degree e2) in
     if comparison <> 0 then -1 * comparison
     else comparison ;;
+
+(* Accumulation parameter for term in combine term func? *)
 
 let rec flatten_list (expr : polyExpr) : polyExpr list =
   match expr with
@@ -101,21 +102,31 @@ let rec flatten_list (expr : polyExpr) : polyExpr list =
     | [] -> []
     | hd :: tl ->
       match hd with
-      | Term _ | Times _ -> hd :: flatten_list (Plus tl)
-      | Plus list -> list @ flatten_list (Plus tl))
+      | Plus list -> list @ flatten_list (Plus tl)
+      | _ -> hd :: flatten_list (Plus tl))
   | Times list -> (
     match list with
     | [] -> []
     | hd :: tl ->
       match hd with
-      | Term _ | Plus _ -> hd :: flatten_list (Times tl)
-      | Times list -> list @ flatten_list (Times tl)) ;;
+      | Times list -> list @ flatten_list (Times tl)
+      | _ -> hd :: flatten_list (Times tl)) ;;
+
+let rec combine_terms (expr : polyExpr) : polyExpr =
+  match expr with
+  | Term _ -> expr
+  | Plus list -> expr
+  | Times list -> expr ;;
+
+let rec distribute_terms (expr : polyExpr) : polyExpr = expr ;;
 
 let simplify_list (expr : polyExpr) : polyExpr list = 
   let sort_list (list : polyExpr list) : polyExpr list = List.fast_sort compare_degree list in
     match expr with
     | Term _ -> [expr]
-    | Plus _ | Times _ -> expr
+    | _ -> expr
+      |> combine_terms
+      |> distribute_terms
       |> flatten_list
       |> sort_list ;;
 
