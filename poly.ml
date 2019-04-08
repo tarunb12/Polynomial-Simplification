@@ -1,5 +1,3 @@
-open List ;;
-
 (* Multivariable: Term of int * char * int -> no need for var ref, compare char throughout *)
 type polyExpr =
   | Term    of int * int 
@@ -9,8 +7,8 @@ type polyExpr =
 let var : char ref = ref '\x00' ;;
 
 (* Function to traslate betwen AST expressions to polyExpr expressions *)
-let rec from_expr (e : Expr.expr) : polyExpr =
-  match e with
+let rec from_expr (expr : Expr.expr) : polyExpr =
+  match expr with
   | Num i -> Term (i, 0)
   | Var v -> var := v; Term (1, 1)
   | Add (e1, e2) -> Plus [from_expr e1; from_expr e2]
@@ -95,30 +93,31 @@ let compare_degree (e1 : polyExpr) (e2 : polyExpr) : int =
     if comparison <> 0 then -1 * comparison
     else comparison ;;
 
-let flatten_list (expr : polyExpr) : polyExpr list =
+let rec flatten_list (expr : polyExpr) : polyExpr list =
   match expr with
-  | Plus list -> list
-  | Times list -> list
-  | _ -> [] ;;
+  | Term _ -> [expr]
+  | Plus list -> (
+    match list with
+    | [] -> []
+    | hd :: tl ->
+      match hd with
+      | Term _ | Times _ -> hd :: flatten_list (Plus tl)
+      | Plus list -> list @ flatten_list (Plus tl))
+  | Times list -> (
+    match list with
+    | [] -> []
+    | hd :: tl ->
+      match hd with
+      | Term _ | Plus _ -> hd :: flatten_list (Times tl)
+      | Times list -> list @ flatten_list (Times tl)) ;;
 
 let simplify_list (expr : polyExpr) : polyExpr list = 
-  let sorted_list (list : polyExpr list) : polyExpr list = fast_sort compare_degree list in
+  let sort_list (list : polyExpr list) : polyExpr list = List.fast_sort compare_degree list in
     match expr with
     | Term _ -> [expr]
-    | Plus list -> sorted_list (
-      match list with
-      | [] -> []
-      | hd :: tl -> (
-        match hd with
-        | Term _ | Times _ -> hd :: flatten_list (Plus tl)
-        | Plus list -> list @ flatten_list (Plus tl)))
-    | Times list -> sorted_list (
-      match list with
-      | [] -> []
-      | hd :: tl -> (
-        match hd with
-        | Term _ | Plus _ -> hd :: flatten_list (Times tl)
-        | Times list -> list @ flatten_list (Times tl))) ;;  
+    | Plus list | Times list -> expr
+      |> flatten_list
+      |> sort_list ;; 
 
 (*  Function to simplify (one pass) polyExprr
 
@@ -135,11 +134,11 @@ let simplify_list (expr : polyExpr) : polyExpr list =
         => Plus[Times[Term(1,1); Term(3,3)]; Times[Term(2,2); Term(3,3)]]
         => Plus[Term(2,3); Term(6,5)]
     Hint 6: Find other situations that can arise *)
-let simplify_polyExpr (e : polyExpr) : polyExpr =
-  match e with
+let simplify_polyExpr (expr : polyExpr) : polyExpr =
+  match expr with
   | Term (c, p) -> Term (c, p)
-  | Plus list as expr -> Plus (simplify_list expr)
-  | Times list as expr -> Times (simplify_list expr) ;;
+  | Plus list -> Plus (simplify_list expr)
+  | Times list -> Times (simplify_list expr) ;;
 
 let compare_poly_list (list1 : polyExpr list) (list2 : polyExpr list) : bool =
   if list1 = list2 then true
@@ -159,7 +158,7 @@ let rec equal_polyExpr (e1 : polyExpr) (e2 : polyExpr) : bool =
 (*  Apply simplify_polyExpr until no progress is made *)    
 let rec simplify (e : polyExpr) : polyExpr =
   Printf.printf "degree: %d\n" (degree e);
+  print_polyExpr e;
+  print_newline ();
   let rE : polyExpr = simplify_polyExpr e in
-    print_polyExpr e;
-    print_newline ();
     if equal_polyExpr e rE then e else simplify rE ;;
