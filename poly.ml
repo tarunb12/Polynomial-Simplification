@@ -115,9 +115,9 @@ let simplify_list (expr : polyExpr) : polyExpr list =
   let sort_list (list : polyExpr list) : polyExpr list = List.fast_sort compare_degree list in
     match expr with
     | Term _ -> [expr]
-    | Plus list | Times list -> expr
+    | Plus _ | Times _ -> expr
       |> flatten_list
-      |> sort_list ;; 
+      |> sort_list ;;
 
 (*  Function to simplify (one pass) polyExprr
 
