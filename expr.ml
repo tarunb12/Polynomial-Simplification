@@ -38,4 +38,4 @@ and print_expr_r (e : expr) : unit =
 let print_expr (e : expr) : expr = 
   print_expr_r e;
   print_newline ();
-  e
+  e ;;

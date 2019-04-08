@@ -1,4 +1,4 @@
-let filename = Sys.argv.(1)
+let filename = Sys.argv.(1) ;;
 
 let () = open_in filename
   |> Lexing.from_channel
@@ -6,4 +6,4 @@ let () = open_in filename
   |> Expr.print_expr
   |> Poly.from_expr
   |> Poly.simplify
-  |> Poly.print_polyExpr
+  |> Poly.print_polyExpr ;;
