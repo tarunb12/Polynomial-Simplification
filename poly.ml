@@ -10,7 +10,7 @@ let var : char ref = ref '\x00' ;;
 let rec from_expr (expr : Expr.expr) : polyExpr =
   match expr with
   | Num i -> Term (i, 0)
-  | Var v -> var := v; Term (1, 1)
+  | Var v -> if !var = '\x00' then var := v; Term (1, 1)
   | Add (e1, e2) -> Plus [from_expr e1; from_expr e2]
   | Sub (e1, e2) -> Plus [from_expr e1; from_expr (Neg e2)]
   | Mul (e1, e2) -> Times [from_expr e1; from_expr e2]
@@ -21,34 +21,33 @@ let rec from_expr (expr : Expr.expr) : polyExpr =
       let rec pow_exp (pow : int) (acc : polyExpr list) : polyExpr list =
         if pow >= 0 then
           match pow with 
-          | 0 -> [Term (1, 0)]
+          | 0 -> [Term ((if e = Num 0 then 0 else 1), 0)]
           | 1 -> poly_expr :: acc
           | _ -> pow_exp (pow - 1) (poly_expr :: acc)
         else [Term (0, 0)] in
       Times (pow_exp i [])) ;;
 
-(*  Print a polyExprr nicely 
-    Term(3,0) -> 3
-    Term(5,1) -> 5x 
-    Term(4,2) -> 4x^2
-    Plus... -> () + () 
-    Times ... -> ()() .. ()
-
-    Hint 1: Print () around elements that are not Term() 
-    Hint 2: Recurse on the elements of Plus[..] or Times[..] *)
 let print_term (c : int) (p : int) : unit =
   match c with
+  | -1 -> (
+    match p with
+    | 0 -> Printf.printf "(-1)"
+    | 1 -> Printf.printf "(-%c)" !var
+    | _ -> Printf.printf "(-%c^%d)" !var p)
   | 0 -> Printf.printf "0"
   | 1 -> (
     match p with
     | 0 -> Printf.printf "1"
     | 1 -> Printf.printf "%c" !var
-    | _ -> Printf.printf "%c%d" !var p)
-  | _ -> (
-    match p with
-    | 0 -> Printf.printf "%d" c
-    | 1 -> Printf.printf "%d%c" c !var
-    | _ -> Printf.printf "%d%c^%d" c !var p) ;;
+    | _ -> Printf.printf "%c^%d" !var p)
+  | _ -> 
+    match p, c > 1 with
+    | 0, true -> Printf.printf "%d" c
+    | 0, false -> Printf.printf "(%d)" c
+    | 1, true -> Printf.printf "%d%c" c !var
+    | 1, false -> Printf.printf "(%d%c)" c !var
+    | _, true -> Printf.printf "%d%c^%d" c !var p
+    | _, false -> Printf.printf "(%d%c^%d)" c !var p ;;
 
 let rec print_polyExpr (e : polyExpr): unit =
   match e with
@@ -62,7 +61,7 @@ and print_polyExpr_list (expr : polyExpr) (list : polyExpr list) (op : string) :
   | hd :: [] -> print_polyExpr hd
   | hd :: tl -> (
     print_polyExpr hd;
-    Printf.printf "%s" op;
+    Printf.printf " %s " op;
     match expr with
     | Plus _ -> print_polyExpr (Plus tl)
     | Times _ -> print_polyExpr (Times tl)
@@ -84,15 +83,8 @@ and get_list_degree (expr: polyExpr) (list : polyExpr list) : int =
     | Times _ -> degree hd + degree (Times tl)
     | _ -> 0 ;;
 
-(*  Comparison function useful for sorting of Plus[..] args 
-    to "normalize them". This way, terms that need to be reduced
-    show up one after another *)
 let compare_degree (e1 : polyExpr) (e2 : polyExpr) : int =
-  let comparison = compare (degree e1) (degree e2) in
-    if comparison <> 0 then -1 * comparison
-    else comparison ;;
-
-(* Accumulation parameter for term in combine term func? *)
+  - compare (degree e1) (degree e2) ;;
 
 let rec flatten_list (expr : polyExpr) : polyExpr list =
   match expr with
@@ -102,54 +94,85 @@ let rec flatten_list (expr : polyExpr) : polyExpr list =
     | [] -> []
     | hd :: tl ->
       match hd with
+      | Term _ -> hd :: flatten_list (Plus tl)
       | Plus list -> list @ flatten_list (Plus tl)
-      | _ -> hd :: flatten_list (Plus tl))
+      | Times list -> Times (flatten_list hd) :: flatten_list (Plus tl))
   | Times list -> (
     match list with
     | [] -> []
     | hd :: tl ->
       match hd with
-      | Times list -> list @ flatten_list (Times tl)
-      | _ -> hd :: flatten_list (Times tl)) ;;
+      | Term _ -> hd :: flatten_list (Times tl)
+      | Plus list -> flatten_list hd @ flatten_list (Times tl)
+      | Times list -> list @ flatten_list (Times tl)) ;;
 
-let rec combine_terms (expr : polyExpr) : polyExpr =
+let rec multiply (list : polyExpr list) : polyExpr = 
+  match list with
+  | [] -> Term (0, 0)
+  | hd :: [] -> hd
+  | hd1 :: hd2 :: tl ->
+    match hd1 with
+    | Term (a, b) -> (
+      match hd2 with
+      | Term (c, d) -> multiply (Term (a * c, b + d) :: tl)
+      | Plus list -> multiply (Plus (List.map (fun expr -> multiply [hd1; expr]) list) :: tl)
+      | Times list -> multiply (multiply (hd1 :: [multiply list]) :: tl))
+    | Plus expr_list -> (
+      match hd2 with
+      | Term (c, d) -> multiply (Plus (List.map (fun expr -> multiply [hd2; expr]) expr_list) :: tl)
+      | Plus list -> multiply (Plus (List.map (fun expr -> multiply [hd1; expr]) list) :: tl)
+      | Times list -> multiply (multiply (hd1 :: [multiply list]) :: tl))
+    | Times expr_list -> (
+      match hd2 with
+      | Term (c, d) -> multiply (multiply (hd2 :: [multiply expr_list]) :: tl)
+      | Plus _ -> multiply (multiply (hd2 :: [multiply expr_list]) :: tl)
+      | Times list -> multiply (multiply (list @ expr_list) :: tl))
+
+let sort_list (list : polyExpr list) : polyExpr list = List.fast_sort compare_degree list ;;
+
+let rec simplify_terms (expr : polyExpr) : polyExpr =
   match expr with
   | Term _ -> expr
-  | Plus list -> expr
-  | Times list -> expr ;;
-
-let rec distribute_terms (expr : polyExpr) : polyExpr = expr ;;
+  | Plus list -> (
+    match list with
+    | [] -> Term (0, 0)
+    | hd :: [] -> hd
+    | hd1 :: hd2 :: tl ->
+      match hd1 with
+      | Term (a, b) -> (
+        match hd2 with
+        | Term (c, d) ->
+          (* print_polyExpr (); Printf.printf "\n"; *)
+          if b = d then simplify_terms (Plus (Term (a + c, b) :: tl))
+          else Plus (hd1 :: [simplify_terms (Plus (sort_list (hd2 :: tl)))])
+        | Plus list -> Plus (hd1 :: [simplify_terms (Plus (sort_list (hd2 :: tl)))])
+        | Times list -> Plus (sort_list (hd1 :: multiply list :: tl)))
+      | Plus list -> simplify_terms (Plus (sort_list (hd2 :: list @ tl)))
+      | Times list -> Plus (sort_list (multiply list :: hd2 :: tl)))
+  | Times list -> multiply list ;;
 
 let simplify_list (expr : polyExpr) : polyExpr list = 
-  let sort_list (list : polyExpr list) : polyExpr list = List.fast_sort compare_degree list in
-    match expr with
-    | Term _ -> [expr]
-    | _ -> expr
-      |> combine_terms
-      |> distribute_terms
-      |> flatten_list
-      |> sort_list ;;
+  match expr with
+  | Term _ -> [expr]
+  | _ -> expr
+    |> simplify_terms
+    |> flatten_list
+    |> sort_list ;;
 
-(*  Function to simplify (one pass) polyExprr
-
-    n1 x^m1 * n2 x^m2 -> n1*n2 x^(m1+m2)
-    Term(n1,m1)*Term(n2,m2) -> Term(n1*n2,m1+m2)
-
-    Hint 1: Keep terms in Plus[...] sorted
-    Hint 2: flatten plus, i.e. Plus[ Plus[..], ..] => Plus[..]
-    Hint 3: flatten times, i.e. times of times is times
-    Hint 4: Accumulate terms. Term(n1,m)+Term(n2,m) => Term(n1+n2,m)
-            Term(n1, m1)*Term(n2,m2) => Term(n1*n2, m1+m2)
-    Hint 5: Use distributivity, i.e. Times[Plus[..],] => Plus[Times[..],]
-      i.e. Times[Plus[Term(1,1); Term(2,2)]; Term(3,3)] 
-        => Plus[Times[Term(1,1); Term(3,3)]; Times[Term(2,2); Term(3,3)]]
-        => Plus[Term(2,3); Term(6,5)]
-    Hint 6: Find other situations that can arise *)
 let simplify_polyExpr (expr : polyExpr) : polyExpr =
   match expr with
   | Term (c, p) -> Term (c, p)
-  | Plus list -> Plus (simplify_list expr)
-  | Times list -> Times (simplify_list expr) ;;
+  | Plus list -> let simplified_list = simplify_list expr in
+    let length = List.length simplified_list in
+      (* print_polyExpr (simplify_terms (Plus simplified_list)); print_newline (); *)
+      if length > 1 then Plus simplified_list
+      else if length = 1 then List.hd simplified_list
+      else Term (0, 0)
+  | Times list -> let simplified_list = simplify_list (multiply list) in
+    let length = List.length simplified_list in
+      if length > 1 then Plus simplified_list
+      else if length = 1 then List.hd simplified_list
+      else Term (0, 0) ;;
 
 let compare_poly_list (list1 : polyExpr list) (list2 : polyExpr list) : bool =
   if list1 = list2 then true
@@ -168,8 +191,7 @@ let rec equal_polyExpr (e1 : polyExpr) (e2 : polyExpr) : bool =
 
 (*  Apply simplify_polyExpr until no progress is made *)    
 let rec simplify (expr : polyExpr) : polyExpr =
-  Printf.printf "degree: %d\n" (degree expr);
   print_polyExpr expr;
   print_newline ();
   let simplifiedExpr : polyExpr = simplify_polyExpr expr in
-    if equal_polyExpr expr simplifiedExpr then expr else simplify simplifiedExpr ;;
+    if equal_polyExpr expr simplifiedExpr then (print_newline (); expr) else simplify simplifiedExpr ;;
